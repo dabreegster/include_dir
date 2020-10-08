@@ -13,7 +13,11 @@ pub(crate) struct Dir {
 }
 
 impl Dir {
-    pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(root: Q, path: P) -> Result<Dir, Error> {
+    pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(
+        root: Q,
+        path: P,
+        include_prefixes: &Vec<String>,
+    ) -> Result<Dir, Error> {
         let abs_path = path.into();
         let root = root.as_ref();
 
@@ -30,9 +34,11 @@ impl Dir {
             let entry = entry?.path();
 
             if entry.is_file() {
-                files.push(File::from_disk(&root, entry)?);
+                if let Some(f) = File::from_disk(&root, entry, include_prefixes) {
+                    files.push(f);
+                }
             } else if entry.is_dir() {
-                dirs.push(Dir::from_disk(&root, entry)?);
+                dirs.push(Dir::from_disk(&root, entry, include_prefixes)?);
             }
         }
 

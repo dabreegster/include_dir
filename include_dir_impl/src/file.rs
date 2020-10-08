@@ -1,4 +1,3 @@
-use anyhow::Error;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use std::path::{Path, PathBuf};
@@ -10,13 +9,21 @@ pub(crate) struct File {
 }
 
 impl File {
-    pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(root: Q, path: P) -> Result<File, Error> {
+    pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(
+        root: Q,
+        path: P,
+        include_prefixes: &Vec<String>,
+    ) -> Option<File> {
         let abs_path = path.into();
         let root = root.as_ref();
 
         let root_rel_path = abs_path.strip_prefix(&root).unwrap().to_path_buf();
+        let this_path = root_rel_path.to_string_lossy().to_string();
+        if !include_prefixes.iter().any(|x| this_path.starts_with(x)) {
+            return None;
+        }
 
-        Ok(File {
+        Some(File {
             abs_path,
             root_rel_path,
         })

@@ -7,7 +7,9 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro_hack::proc_macro_hack;
 use quote::quote;
-use syn::{parse_macro_input, LitStr};
+use syn::parse::{Parse, ParseStream, Result};
+use syn::punctuated::Punctuated;
+use syn::{parse_macro_input, LitStr, Token};
 
 use crate::dir::Dir;
 use std::env;
@@ -16,12 +18,30 @@ use std::path::PathBuf;
 mod dir;
 mod file;
 
+struct Args {
+    dir: String,
+    include_prefixes: Vec<String>,
+}
+
+impl Parse for Args {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let strings = Punctuated::<LitStr, Token![,]>::parse_terminated(input)?;
+        let mut iter = strings.into_iter();
+        let dir = iter.next().unwrap().value();
+        let include_prefixes = iter.map(|x| x.value()).collect();
+        Ok(Args {
+            dir,
+            include_prefixes,
+        })
+    }
+}
+
 #[proc_macro_hack]
 pub fn include_dir(input: TokenStream) -> TokenStream {
-    let input: LitStr = parse_macro_input!(input as LitStr);
+    let args = parse_macro_input!(input as Args);
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let path = PathBuf::from(crate_root).join(input.value());
+    let path = PathBuf::from(crate_root).join(args.dir);
 
     if !path.exists() {
         panic!("\"{}\" doesn't exist", path.display());
@@ -29,7 +49,8 @@ pub fn include_dir(input: TokenStream) -> TokenStream {
 
     let path = path.canonicalize().expect("Can't normalize the path");
 
-    let dir = Dir::from_disk(&path, &path).expect("Couldn't load the directory");
+    let dir =
+        Dir::from_disk(&path, &path, &args.include_prefixes).expect("Couldn't load the directory");
 
     TokenStream::from(quote! {
         #dir
