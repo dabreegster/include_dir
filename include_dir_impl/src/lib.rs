@@ -20,7 +20,7 @@ mod file;
 
 struct Args {
     dir: String,
-    include_prefixes: Vec<String>,
+    prefixes: Vec<String>,
 }
 
 impl Parse for Args {
@@ -28,12 +28,17 @@ impl Parse for Args {
         let strings = Punctuated::<LitStr, Token![,]>::parse_terminated(input)?;
         let mut iter = strings.into_iter();
         let dir = iter.next().unwrap().value();
-        let include_prefixes = iter.map(|x| x.value()).collect();
+        let prefixes = iter.map(|x| x.value()).collect();
         Ok(Args {
             dir,
-            include_prefixes,
+            prefixes,
         })
     }
+}
+
+struct Filter {
+    include: Vec<String>,
+    exclude: Vec<String>,
 }
 
 #[proc_macro_hack]
@@ -49,8 +54,20 @@ pub fn include_dir(input: TokenStream) -> TokenStream {
 
     let path = path.canonicalize().expect("Can't normalize the path");
 
+    let mut filter = Filter {
+        include: Vec::new(),
+        exclude: Vec::new(),
+    };
+    for prefix in args.prefixes {
+        if let Some(path) = prefix.strip_prefix("-") {
+            filter.exclude.push(path.to_string());
+        } else {
+            filter.include.push(prefix);
+        }
+    }
+
     let dir =
-        Dir::from_disk(&path, &path, &args.include_prefixes).expect("Couldn't load the directory");
+        Dir::from_disk(&path, &path, &filter).expect("Couldn't load the directory");
 
     TokenStream::from(quote! {
         #dir

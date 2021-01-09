@@ -1,4 +1,5 @@
 use crate::file::File;
+use crate::Filter;
 use anyhow::{self, format_err, Context, Error};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -16,7 +17,7 @@ impl Dir {
     pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(
         root: Q,
         path: P,
-        include_prefixes: &Vec<String>,
+        filter: &Filter,
     ) -> Result<Dir, Error> {
         let abs_path = path.into();
         let root = root.as_ref();
@@ -34,11 +35,11 @@ impl Dir {
             let entry = entry?.path();
 
             if entry.is_file() {
-                if let Some(f) = File::from_disk(&root, entry, include_prefixes) {
+                if let Some(f) = File::from_disk(&root, entry, filter) {
                     files.push(f);
                 }
             } else if entry.is_dir() {
-                dirs.push(Dir::from_disk(&root, entry, include_prefixes)?);
+                dirs.push(Dir::from_disk(&root, entry, filter)?);
             }
         }
 

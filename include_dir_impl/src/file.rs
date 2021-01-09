@@ -1,3 +1,4 @@
+use crate::Filter;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use std::path::{Path, PathBuf};
@@ -12,14 +13,17 @@ impl File {
     pub fn from_disk<Q: AsRef<Path>, P: Into<PathBuf>>(
         root: Q,
         path: P,
-        include_prefixes: &Vec<String>,
+        filter: &Filter,
     ) -> Option<File> {
         let abs_path = path.into();
         let root = root.as_ref();
 
         let root_rel_path = abs_path.strip_prefix(&root).unwrap().to_path_buf();
         let this_path = root_rel_path.to_string_lossy().to_string();
-        if !include_prefixes.iter().any(|x| this_path.starts_with(x)) {
+        if !filter.include.iter().any(|x| this_path.starts_with(x)) {
+            return None;
+        }
+        if filter.exclude.iter().any(|x| this_path.starts_with(x)) {
             return None;
         }
 
